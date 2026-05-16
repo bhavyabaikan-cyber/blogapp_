@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { verifyToken } from "../middlewares/VerifyToken.js";
 
 const { sign } = jwt;
-export const commonApp = exp.Router();
+export const commonApp = express.Router();
 
 import { upload } from "../config/multer.js";
 import { uploadToCloudinary } from "../config/cloudinaryUpload.js";
