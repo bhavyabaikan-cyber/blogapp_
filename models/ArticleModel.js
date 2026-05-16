@@ -1,46 +1,60 @@
-import { Schema,model,Types } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 
-//create comment schema
-const comment = new Schema({
-    user : {
-        type :Types.ObjectId,
-        ref:"user",
-        required : [true,"User id required"]
+const commentSchema = new Schema(
+  {
+    user: {
+      type: Types.ObjectId,
+      ref: "user",
+      required: [true, "User id required"],
     },
-    comment : {
-        type : String,
-        required : [true,"Enter comment"]
-    }},{
-        versionKey :false,
-        timeseries:true,
-        strict : "throw" 
-})
-const ArticleSchema = new Schema({
-      author  : {
-        type : Types.ObjectId,
-        ref: "user",
-        requires : [true,"Author id is required"]
-      },
-      title :{
-        type : String,
-        required :[true,"is required"],
-      },
-      category : {
-            
-      },
-      content : {
-        type : String,
-        required : [true,"content is required"]
-      },
-      comments : {
-           type : []
-      },
-      isArticle : {
-          type : Boolean,
-          default : true
-      },
-    },{
-      
-})
+    comment: {
+      type: String,
+      required: [true, "Enter comment"],
+      trim: true,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+  }
+);
 
-export const ArticleModel = model("article",ArticleSchema)
+const ArticleSchema = new Schema(
+  {
+    author: {
+      type: Types.ObjectId,
+      ref: "user",
+      required: [true, "Author id is required"],
+    },
+    title: {
+      type: String,
+      required: [true, "Title is required"],
+      trim: true,
+    },
+    category: {
+      type: String,
+      required: [true, "Category is required"],
+      trim: true,
+    },
+    content: {
+      type: String,
+      required: [true, "Content is required"],
+      trim: true,
+    },
+    comments: {
+      type: [commentSchema],
+      default: [],
+    },
+    isArticleActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+    strict: "throw",
+  }
+);
+
+export const ArticleModel = model("article", ArticleSchema);

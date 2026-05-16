@@ -3,10 +3,11 @@ import { config } from "dotenv";
 import { connect } from "mongoose";
 import { userApp } from "./APIs/UserAPI.js";
 import { authorApp } from "./APIs/AuthorAPI.js";
-import { adminApp } from "./APIs/AdminAPI.js";
+import { adminApp } from './APIs/AdminAPI.js'
 import { commonApp } from "./APIs/CommonAPI.js";
 import cookieParser from "cookie-parser";
 import cors from 'cors'
+
 config();
 
 //create express app

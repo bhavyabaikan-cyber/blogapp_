@@ -1,38 +1,45 @@
-import {Schema,model} from 'mongoose'
+import { Schema, model } from "mongoose";
 
-const UserSchema = new Schema({
-    firstName : {
-        type : String,
-        required : [true,"First name is required"],
+const UserSchema = new Schema(
+  {
+    firstName: {
+      type: String,
+      required: [true, "First name is required"],
+      trim: true,
     },
-    lastNamse : {
-        type : String,
+    lastName: {
+      type: String,
+      trim: true,
     },
-    email : {
-        type : String,
-        required : [true,"Email is required"],
-        unique : true
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      trim: true,
+      lowercase: true,
     },
-    password : {
-        type : String,
-        required : [true,"Password required"],
+    password: {
+      type: String,
+      required: [true, "Password required"],
     },
-    role : {
-        type : String,
-        enum : ["USER","AUTHOR","ADMIN"],
-        required :[true,"invalid role"]
+    role: {
+      type: String,
+      enum: ["USER", "AUTHOR", "ADMIN"],
+      required: [true, "Invalid role"],
     },
-    profileImageUrl :{
-        type : String,
+    profileImageUrl: {
+      type: String,
     },
-    isUserActive : {
-        type : Boolean,
-        default : true,
-    }},{
-        timestamps: true,
-        versionKey: false,
-        strict :"throws"
-    
-})
+    isUserActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+    strict: "throw",
+  }
+);
 
-export const UserModel = model("user",UserSchema)
+export const UserModel = model("user", UserSchema);

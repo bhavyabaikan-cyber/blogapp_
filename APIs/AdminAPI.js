@@ -1,18 +1,20 @@
 import exp from "express";
 import { UserModel } from "../models/UserModel.js";
 import { ArticleModel } from "../models/ArticleModel.js";
-import { verifyToken } from "../middlewares/VerifyToken.js";
+import { verifyToken } from "../middlewares/verifyToken.js";
 
 export const adminApp = exp.Router();
 
-// Get dashboard statistics
-adminApp.get("/dashboard", verifyToken("ADMIN"), async (req, res) => {
+// Dashboard
+adminApp.get("/dashboard", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const totalUsers = await UserModel.countDocuments();
     const activeUsers = await UserModel.countDocuments({ isUserActive: true });
     const totalArticles = await ArticleModel.countDocuments();
-    const activeArticles = await ArticleModel.countDocuments({ isArticleActive: true });
-    
+    const activeArticles = await ArticleModel.countDocuments({
+      isArticleActive: true,
+    });
+
     res.status(200).json({
       message: "Dashboard stats fetched successfully",
       payload: {
@@ -23,230 +25,233 @@ adminApp.get("/dashboard", verifyToken("ADMIN"), async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching dashboard stats", error: err.message });
+    next(err);
   }
 });
-
 
 // Get all users
-adminApp.get("/users", verifyToken("ADMIN"), async (req, res) => {
+adminApp.get("/users", verifyToken("ADMIN"), async (req, res, next) => {
   try {
-    const usersList = await UserModel.find({}, "-password"); // Exclude password field
-    res.status(200).json({ message: "Users fetched successfully", payload: usersList });
+    const usersList = await UserModel.find({}, "-password").sort({
+      createdAt: -1,
+    });
+
+    res.status(200).json({
+      message: "Users fetched successfully",
+      payload: usersList,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching users", error: err.message });
+    next(err);
   }
 });
 
-// Get single user by ID
-adminApp.get("/users/:userId", verifyToken("ADMIN"), async (req, res) => {
+// Get single user
+adminApp.get("/users/:userId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { userId } = req.params;
+
     const user = await UserModel.findById(userId, "-password");
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-    res.status(200).json({ message: "User fetched successfully", payload: user });
+
+    res.status(200).json({
+      message: "User fetched successfully",
+      payload: user,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching user", error: err.message });
+    next(err);
   }
 });
 
-// Update user role or status
-adminApp.put("/users/:userId", verifyToken("ADMIN"), async (req, res) => {
+// Update user
+adminApp.put("/users/:userId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { role, isUserActive, firstName, lastName } = req.body;
-    
-    // Validate role if provided
+
     if (role && !["USER", "AUTHOR", "ADMIN"].includes(role)) {
       return res.status(400).json({ message: "Invalid role specified" });
     }
-    
-    const updatedUser = await UserModel.findOneAndUpdate(
-      { _id: userId },
-      { $set: { role, isUserActive, firstName, lastName } },
-      { new: true, runValidators: true },
+
+    const updateObj = {};
+
+    if (role !== undefined) updateObj.role = role;
+    if (isUserActive !== undefined) updateObj.isUserActive = isUserActive;
+    if (firstName !== undefined) updateObj.firstName = firstName;
+    if (lastName !== undefined) updateObj.lastName = lastName;
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: updateObj },
+      { new: true, runValidators: true }
     ).select("-password");
-    
+
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-    res.status(200).json({ message: "User updated successfully", payload: updatedUser });
+
+    res.status(200).json({
+      message: "User updated successfully",
+      payload: updatedUser,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating user", error: err.message });
+    next(err);
   }
 });
 
-// Soft delete user (deactivate)
-adminApp.patch("/users/:userId", verifyToken("ADMIN"), async (req, res) => {
+// Activate / deactivate user
+adminApp.patch("/users/:userId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { isUserActive } = req.body;
-    
-    const user = await UserModel.findById(userId);
-    
-    if (!user) {
+
+    if (typeof isUserActive !== "boolean") {
+      return res.status(400).json({
+        message: "isUserActive must be true or false",
+      });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: { isUserActive } },
+      { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-    // Check if status is already same
-    if (isUserActive === user.isUserActive) {
-      return res.status(200).json({ message: "User already in the same state" });
-    }
-    
-    user.isUserActive = isUserActive;
-    await user.save();
-    
-    res.status(200).json({ message: "User status updated", payload: user });
+
+    res.status(200).json({
+      message: "User status updated",
+      payload: updatedUser,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating user status", error: err.message });
+    next(err);
   }
 });
 
-// Get all articles (with optional author details)
-adminApp.get("/articles", verifyToken("ADMIN"), async (req, res) => {
+// Get all articles
+adminApp.get("/articles", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const articlesList = await ArticleModel.find()
-      .populate("author", "firstName lastName email")
+      .populate("author", "firstName lastName email profileImageUrl")
       .sort({ createdAt: -1 });
-      
-    res.status(200).json({ message: "Articles fetched successfully", payload: articlesList });
+
+    res.status(200).json({
+      message: "Articles fetched successfully",
+      payload: articlesList,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching articles", error: err.message });
+    next(err);
   }
 });
 
-// Get single article by ID
-adminApp.get("/articles/:articleId", verifyToken("ADMIN"), async (req, res) => {
+// Get single article
+adminApp.get("/articles/:articleId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { articleId } = req.params;
-    const article = await ArticleModel.findById(articleId)
-      .populate("author", "firstName lastName email");
-    
+
+    const article = await ArticleModel.findById(articleId).populate(
+      "author",
+      "firstName lastName email profileImageUrl"
+    );
+
     if (!article) {
       return res.status(404).json({ message: "Article not found" });
     }
-    
-    res.status(200).json({ message: "Article fetched successfully", payload: article });
+
+    res.status(200).json({
+      message: "Article fetched successfully",
+      payload: article,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching article", error: err.message });
+    next(err);
   }
 });
 
-// Update article (admin can edit any article)
-adminApp.put("/articles/:articleId", verifyToken("ADMIN"), async (req, res) => {
+// Update article
+adminApp.put("/articles/:articleId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { articleId } = req.params;
     const { title, category, content, isArticleActive } = req.body;
-    
-    const updatedArticle = await ArticleModel.findOneAndUpdate(
-      { _id: articleId },
-      { $set: { title, category, content, isArticleActive } },
-      { new: true, runValidators: true },
-    ).populate("author", "firstName lastName email");
-    
+
+    const updateObj = {};
+
+    if (title !== undefined) updateObj.title = title;
+    if (category !== undefined) updateObj.category = category;
+    if (content !== undefined) updateObj.content = content;
+    if (isArticleActive !== undefined) updateObj.isArticleActive = isArticleActive;
+
+    const updatedArticle = await ArticleModel.findByIdAndUpdate(
+      articleId,
+      { $set: updateObj },
+      { new: true, runValidators: true }
+    ).populate("author", "firstName lastName email profileImageUrl");
+
     if (!updatedArticle) {
       return res.status(404).json({ message: "Article not found" });
     }
-    
-    res.status(200).json({ message: "Article updated successfully", payload: updatedArticle });
+
+    res.status(200).json({
+      message: "Article updated successfully",
+      payload: updatedArticle,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating article", error: err.message });
+    next(err);
   }
 });
 
-// Soft delete article (toggle active status)
-adminApp.patch("/articles/:articleId", verifyToken("ADMIN"), async (req, res) => {
+// Activate / deactivate article
+adminApp.patch("/articles/:articleId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { articleId } = req.params;
     const { isArticleActive } = req.body;
-    
-    const article = await ArticleModel.findById(articleId);
-    
-    if (!article) {
+
+    if (typeof isArticleActive !== "boolean") {
+      return res.status(400).json({
+        message: "isArticleActive must be true or false",
+      });
+    }
+
+    const updatedArticle = await ArticleModel.findByIdAndUpdate(
+      articleId,
+      { $set: { isArticleActive } },
+      { new: true }
+    );
+
+    if (!updatedArticle) {
       return res.status(404).json({ message: "Article not found" });
     }
-    
-    // Check if status is already same
-    if (isArticleActive === article.isArticleActive) {
-      return res.status(200).json({ message: "Article already in the same state" });
-    }
-    
-    article.isArticleActive = isArticleActive;
-    await article.save();
-    
-    res.status(200).json({ message: "Article status updated", payload: article });
+
+    res.status(200).json({
+      message: "Article status updated",
+      payload: updatedArticle,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating article status", error: err.message });
+    next(err);
   }
 });
 
-// Delete article permanently (hard delete - use with caution)
-adminApp.delete("/articles/:articleId", verifyToken("ADMIN"), async (req, res) => {
+// Delete article permanently
+adminApp.delete("/articles/:articleId", verifyToken("ADMIN"), async (req, res, next) => {
   try {
     const { articleId } = req.params;
-    
+
     const deletedArticle = await ArticleModel.findByIdAndDelete(articleId);
-    
+
     if (!deletedArticle) {
       return res.status(404).json({ message: "Article not found" });
     }
-    
-    res.status(200).json({ message: "Article permanently deleted", payload: deletedArticle });
+
+    res.status(200).json({
+      message: "Article permanently deleted",
+      payload: deletedArticle,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error deleting article", error: err.message });
+    next(err);
   }
 });
 
-// ==================== SEARCH & FILTER ====================
-// Search users by name or email
-adminApp.get("/search/users", verifyToken("ADMIN"), async (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ message: "Search query is required" });
-    }
-    
-    const users = await UserModel.find({
-      $or: [
-        { firstName: { $regex: query, $options: "i" } },
-        { lastName: { $regex: query, $options: "i" } },
-        { email: { $regex: query, $options: "i" } },
-      ],
-    }, "-password");
-    
-    res.status(200).json({ message: "Search results", payload: users });
-  } catch (err) {
-    res.status(500).json({ message: "Error searching users", error: err.message });
-  }
-});
-
-// Search articles by title, category or content
-adminApp.get("/search/articles", verifyToken("ADMIN"), async (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ message: "Search query is required" });
-    }
-    
-    const articles = await ArticleModel.find({
-      $or: [
-        { title: { $regex: query, $options: "i" } },
-        { category: { $regex: query, $options: "i" } },
-        { content: { $regex: query, $options: "i" } },
-      ],
-    })
-    .populate("author", "firstName lastName email")
-    .sort({ createdAt: -1 });
-    
-    res.status(200).json({ message: "Search results", payload: articles });
-  } catch (err) {
-    res.status(500).json({ message: "Error searching articles", error: err.message });
-  }
-});
+export default adminApp;
